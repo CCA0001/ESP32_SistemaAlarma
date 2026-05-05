@@ -1,0 +1,73 @@
+services:
+
+  emqx:
+    image: emqx/emqx:latest
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "18083:18083"
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "emqx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  mariadb:
+    image: mariadb:lts
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      - PMA_HOST=mariadb
+      - PMA_USER=${MYSQL_USER}
+      - PMA_PASSWORD=${MYSQL_PASSWORD}
+    networks: [app]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
+    environment:
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    networks: [app]
+
+  nginx:
+    build: ./nginx
+    restart: unless-stopped
+    depends_on: [backend, phpmyadmin]
+    ports:
+      - "80:80"
+    networks: [app]
+
+volumes:
+  mariadb_data:
+
+networks:
+  app:
+    driver: bridge

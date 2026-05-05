@@ -1,0 +1,178 @@
+/* =============================================
+   LuxPanel — dashboard.js
+   Polling a /api/data  →  Chart.js
+   ============================================= */
+
+'use strict';
+
+/* ─── Configuración ─────────────────────────── */
+const API_URL      = '/api/data';
+const POLL_INTERVAL = 3000;   // ms entre cada consulta a la BD
+const LUX_MAX      = 1000;
+const MAX_RECORDS  = 50;
+
+/* ─── Estado global ─────────────────────────── */
+const state = {
+  lastId     : null,   // para detectar datos nuevos
+  sessionMax : null,
+  sessionMaxTs : null,
+  sessionMin : null,
+  sessionMinTs : null,
+};
+
+/* ─── Referencias DOM ───────────────────────── */
+const dom = {
+  lastUpdate   : document.getElementById('last-update'),
+  kpiCurrent   : document.getElementById('kpi-current'),
+  kpiBar       : document.getElementById('kpi-bar'),
+  kpiMax       : document.getElementById('kpi-max'),
+  kpiMaxTime   : document.getElementById('kpi-max-time'),
+  kpiMin       : document.getElementById('kpi-min'),
+  kpiMinTime   : document.getElementById('kpi-min-time'),
+  kpiAvg       : document.getElementById('kpi-avg'),
+  gaugeArc     : document.getElementById('gauge-arc'),
+  gaugePct     : document.getElementById('gauge-pct'),
+  readingsBody : document.getElementById('readings-body'),
+  tableCount   : document.getElementById('table-count'),
+  placeholder  : document.getElementById('chart-placeholder'),
+  statusDot    : document.querySelector('.status-dot'),
+  statusLabel  : document.querySelector('.status-label'),
+};
+
+/* ─── Chart.js ──────────────────────────────── */
+const ctx   = document.getElementById('lux-chart').getContext('2d');
+const chart = new Chart(ctx, {
+  type : 'line',
+  data : {
+    labels   : [],
+    datasets : [{
+      label           : 'Luminosidad (lux)',
+      data            : [],
+      borderColor     : '#FF5252',
+      backgroundColor : 'rgba(211, 47, 47, 0.12)',
+      borderWidth     : 2,
+      pointRadius     : 3,
+      pointBackgroundColor : '#FF5252',
+      pointBorderColor     : '#1A1A1A',
+      pointBorderWidth     : 1.5,
+      tension         : 0.35,
+      fill            : true,
+    }],
+  },
+  options : {
+    responsive          : true,
+    maintainAspectRatio : false,
+    animation           : { duration: 300 },
+    plugins : { legend : { display: false } },
+    scales : {
+      x : {
+        ticks  : { color: '#363636', font: { family: 'DM Mono', size: 10 }, maxRotation: 0 },
+        grid   : { color: 'rgba(255,255,255,0.04)' },
+      },
+      y : {
+        min    : 0,
+        max    : LUX_MAX,
+        ticks  : { color: '#363636', font: { family: 'DM Mono', size: 10 }, stepSize: 250 },
+        grid   : { color: 'rgba(255,255,255,0.04)' },
+      },
+    },
+  },
+});
+
+/* ─── Helpers ───────────────────────────────── */
+function fmtTime(dateStr) {
+  return new Date(dateStr).toTimeString().slice(0, 8);
+}
+
+function luxBadge(value) {
+  if (value >= 700) return '<span class="badge badge--alto">Alto</span>';
+  if (value >= 300) return '<span class="badge badge--medio">Medio</span>';
+  return '<span class="badge badge--bajo">Bajo</span>';
+}
+
+function setStatus(online) {
+  dom.statusDot.classList.toggle('status-dot--online',  online);
+  dom.statusDot.classList.toggle('status-dot--offline', !online);
+  dom.statusLabel.textContent = online ? 'Sensor activo' : 'Sin conexión';
+}
+
+/* ─── Renderizar datos recibidos de la BD ───── */
+function render(rows) {
+  if (!rows.length) return;
+
+  // Actualizar gráfica
+  chart.data.labels            = rows.map(r => fmtTime(r.creado_en));
+  chart.data.datasets[0].data  = rows.map(r => parseFloat(r.valor));
+  chart.update('none');
+  dom.placeholder.classList.add('hidden');
+
+  // KPI: valor actual (último registro)
+  const last  = rows[rows.length - 1];
+  const value = parseFloat(last.valor);
+
+  dom.kpiCurrent.textContent = value;
+  dom.kpiBar.style.width     = Math.min((value / LUX_MAX) * 100, 100) + '%';
+  dom.lastUpdate.textContent = fmtTime(last.creado_en);
+
+  // KPI: máx / mín de sesión
+  rows.forEach(r => {
+    const v = parseFloat(r.valor);
+    if (state.sessionMax === null || v > state.sessionMax) {
+      state.sessionMax   = v;
+      state.sessionMaxTs = r.creado_en;
+    }
+    if (state.sessionMin === null || v < state.sessionMin) {
+      state.sessionMin   = v;
+      state.sessionMinTs = r.creado_en;
+    }
+  });
+  dom.kpiMax.textContent     = state.sessionMax;
+  dom.kpiMaxTime.textContent = fmtTime(state.sessionMaxTs);
+  dom.kpiMin.textContent     = state.sessionMin;
+  dom.kpiMinTime.textContent = fmtTime(state.sessionMinTs);
+
+  // KPI: promedio
+  const avg = Math.round(rows.reduce((s, r) => s + parseFloat(r.valor), 0) / rows.length);
+  dom.kpiAvg.textContent = avg;
+
+  // Gauge
+  const ARC_LEN = 251;
+  const filled  = Math.min(value / LUX_MAX, 1) * ARC_LEN;
+  dom.gaugeArc.setAttribute('stroke-dasharray', `${filled.toFixed(1)} ${ARC_LEN}`);
+  dom.gaugePct.textContent = Math.round((value / LUX_MAX) * 100) + '%';
+
+  // Tabla (solo muestra los últimos MAX_RECORDS, más reciente arriba)
+  const emptyRow = dom.readingsBody.querySelector('.table-empty-row');
+  if (emptyRow) emptyRow.remove();
+
+  dom.readingsBody.innerHTML = '';
+  [...rows].reverse().slice(0, MAX_RECORDS).forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:rgba(255,255,255,0.3)">${i + 1}</td>
+      <td>${fmtTime(r.creado_en)}</td>
+      <td>${parseFloat(r.valor)}</td>
+      <td>${luxBadge(parseFloat(r.valor))}</td>
+    `;
+    dom.readingsBody.appendChild(tr);
+  });
+  dom.tableCount.textContent = Math.min(rows.length, MAX_RECORDS) + ' registros';
+}
+
+/* ─── Polling a la BD ───────────────────────── */
+async function poll() {
+  try {
+    const res  = await fetch(API_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    setStatus(true);
+    render(rows);
+  } catch (err) {
+    console.error('[LuxPanel] Error al consultar BD:', err.message);
+    setStatus(false);
+  }
+}
+
+/* ─── Arranque ──────────────────────────────── */
+poll();
+setInterval(poll, POLL_INTERVAL);
