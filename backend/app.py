@@ -1,24 +1,24 @@
 import os
+import ssl
 import threading
 import paho.mqtt.client as mqtt
 import mysql.connector
 from flask import Flask, jsonify
 
-# ── Configuración ────────────────────────────
+# ── Configuración MQTT ───────────────────────
 MQTT_HOST  = os.environ.get('MQTT_HOST', 'localhost')
-MQTT_PORT  = int(os.environ.get('MQTT_PORT', 1883))
+MQTT_PORT  = int(os.environ.get('MQTT_PORT', 8884))
 MQTT_TOPIC = os.environ.get('MQTT_TOPIC', 'test01')
-
 MQTT_USER  = os.environ.get('MQTT_USER', '')
 MQTT_PASS  = os.environ.get('MQTT_PASS', '')
 
-
+# ── Configuración MySQL ──────────────────────
 DB = {
-    'host':     os.environ.get('MYSQL_HOST', 'localhost'),
-    'port':     int(os.environ.get('MYSQL_PORT', 3306)),
-    'user':     os.environ['MYSQL_USER'],
-    'password': os.environ['MYSQL_PASSWORD'],
-    'database': os.environ['MYSQL_DATABASE'],
+    'host':     os.environ.get('MYSQL_HOST') or os.environ.get('MYSQLHOST', 'localhost'),
+    'port':     int(os.environ.get('MYSQL_PORT') or os.environ.get('MYSQLPORT', 3306)),
+    'user':     os.environ.get('MYSQL_USER') or os.environ.get('MYSQLUSER', ''),
+    'password': os.environ.get('MYSQL_PASSWORD') or os.environ.get('MYSQLPASSWORD', ''),
+    'database': os.environ.get('MYSQL_DATABASE') or os.environ.get('MYSQLDATABASE', ''),
 }
 
 # ── Base de datos ────────────────────────────
@@ -40,7 +40,7 @@ def init_db():
 # ── MQTT ─────────────────────────────────────
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("Conectado a EMQX")
+        print("Conectado a HiveMQ")
         client.subscribe(MQTT_TOPIC)
     else:
         print(f"Error de conexión MQTT, código: {rc}")
@@ -55,16 +55,16 @@ def on_message(client, userdata, msg):
         conn.close()
         print(f"Guardado: {valor}")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error al guardar: {e}")
 
 def start_mqtt():
-    client = mqtt.Client()
+    # Usar WebSockets sobre TLS (puerto 8884) que Railway permite
+    client = mqtt.Client(transport="websockets")
     client.on_connect = on_connect
     client.on_message = on_message
     if MQTT_USER:
         client.username_pw_set(MQTT_USER, MQTT_PASS)
-    if MQTT_PORT == 8883:
-        client.tls_set()  # TLS para HiveMQ Cloud
+    client.tls_set(tls_version=ssl.PROTOCOL_TLS)
     client.connect(MQTT_HOST, MQTT_PORT)
     client.loop_forever()
 
