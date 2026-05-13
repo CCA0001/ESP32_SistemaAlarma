@@ -5,12 +5,17 @@ import mysql.connector
 from flask import Flask, jsonify
 
 # ── Configuración ────────────────────────────
-MQTT_HOST  = 'emqx'
-MQTT_PORT  = 1883
-MQTT_TOPIC = 'test01'
+MQTT_HOST  = os.environ.get('MQTT_HOST', 'localhost')
+MQTT_PORT  = int(os.environ.get('MQTT_PORT', 1883))
+MQTT_TOPIC = os.environ.get('MQTT_TOPIC', 'test01')
+
+MQTT_USER  = os.environ.get('MQTT_USER', '')
+MQTT_PASS  = os.environ.get('MQTT_PASS', '')
+
 
 DB = {
-    'host':     'mariadb',
+    'host':     os.environ.get('MYSQL_HOST', 'localhost'),
+    'port':     int(os.environ.get('MYSQL_PORT', 3306)),
     'user':     os.environ['MYSQL_USER'],
     'password': os.environ['MYSQL_PASSWORD'],
     'database': os.environ['MYSQL_DATABASE'],
@@ -33,6 +38,13 @@ def init_db():
     conn.close()
 
 # ── MQTT ─────────────────────────────────────
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Conectado a EMQX")
+        client.subscribe(MQTT_TOPIC)
+    else:
+        print(f"Error de conexión MQTT, código: {rc}")
+
 def on_message(client, userdata, msg):
     try:
         valor = float(msg.payload.decode().strip())
@@ -47,9 +59,13 @@ def on_message(client, userdata, msg):
 
 def start_mqtt():
     client = mqtt.Client()
+    client.on_connect = on_connect
     client.on_message = on_message
+    if MQTT_USER:
+        client.username_pw_set(MQTT_USER, MQTT_PASS)
+    if MQTT_PORT == 8883:
+        client.tls_set()  # TLS para HiveMQ Cloud
     client.connect(MQTT_HOST, MQTT_PORT)
-    client.subscribe(MQTT_TOPIC)
     client.loop_forever()
 
 # ── Flask ────────────────────────────────────
@@ -68,4 +84,4 @@ def data():
 if __name__ == '__main__':
     init_db()
     threading.Thread(target=start_mqtt, daemon=True).start()
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
