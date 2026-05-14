@@ -1,18 +1,30 @@
-
 'use strict';
 
+/* ─── Configuración Firebase ────────────────── */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC-VMERxR38vxhEusqAA8yv6tZvv4QJoeU",
+  authDomain: "dashboard-esp32-d4b3b.firebaseapp.com",
+  projectId: "dashboard-esp32-d4b3b",
+  storageBucket: "dashboard-esp32-d4b3b.firebasestorage.app",
+  messagingSenderId: "367583210826",
+  appId: "1:367583210826:web:11da61ad8e8ea149c6e5b3"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
 /* ─── Configuración ─────────────────────────── */
-const API_URL      = '/api/data';
-const POLL_INTERVAL = 3000;   // ms entre cada consulta a la BD
 const LUX_MAX      = 1000;
 const MAX_RECORDS  = 50;
 
 /* ─── Estado global ─────────────────────────── */
 const state = {
-  lastId     : null,   // para detectar datos nuevos
-  sessionMax : null,
+  sessionMax   : null,
   sessionMaxTs : null,
-  sessionMin : null,
+  sessionMin   : null,
   sessionMinTs : null,
 };
 
@@ -42,17 +54,17 @@ const chart = new Chart(ctx, {
   data : {
     labels   : [],
     datasets : [{
-      label           : 'Luminosidad (lux)',
-      data            : [],
-      borderColor     : '#FF5252',
-      backgroundColor : 'rgba(211, 47, 47, 0.12)',
-      borderWidth     : 2,
-      pointRadius     : 3,
+      label                : 'Luminosidad (lux)',
+      data                 : [],
+      borderColor          : '#FF5252',
+      backgroundColor      : 'rgba(211, 47, 47, 0.12)',
+      borderWidth          : 2,
+      pointRadius          : 3,
       pointBackgroundColor : '#FF5252',
       pointBorderColor     : '#1A1A1A',
       pointBorderWidth     : 1.5,
-      tension         : 0.35,
-      fill            : true,
+      tension              : 0.35,
+      fill                 : true,
     }],
   },
   options : {
@@ -62,22 +74,24 @@ const chart = new Chart(ctx, {
     plugins : { legend : { display: false } },
     scales : {
       x : {
-        ticks  : { color: '#363636', font: { family: 'DM Mono', size: 10 }, maxRotation: 0 },
-        grid   : { color: 'rgba(255,255,255,0.04)' },
+        ticks : { color: '#363636', font: { family: 'DM Mono', size: 10 }, maxRotation: 0 },
+        grid  : { color: 'rgba(255,255,255,0.04)' },
       },
       y : {
-        min    : 0,
-        max    : LUX_MAX,
-        ticks  : { color: '#363636', font: { family: 'DM Mono', size: 10 }, stepSize: 250 },
-        grid   : { color: 'rgba(255,255,255,0.04)' },
+        min   : 0,
+        max   : LUX_MAX,
+        ticks : { color: '#363636', font: { family: 'DM Mono', size: 10 }, stepSize: 250 },
+        grid  : { color: 'rgba(255,255,255,0.04)' },
       },
     },
   },
 });
 
 /* ─── Helpers ───────────────────────────────── */
-function fmtTime(dateStr) {
-  return new Date(dateStr).toTimeString().slice(0, 8);
+function fmtTime(ts) {
+  if (!ts) return '--:--:--';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toTimeString().slice(0, 8);
 }
 
 function luxBadge(value) {
@@ -92,17 +106,15 @@ function setStatus(online) {
   dom.statusLabel.textContent = online ? 'Sensor activo' : 'Sin conexión';
 }
 
-/* ─── Renderizar datos recibidos de la BD ───── */
+/* ─── Renderizar datos ──────────────────────── */
 function render(rows) {
   if (!rows.length) return;
 
-  // Actualizar gráfica
-  chart.data.labels            = rows.map(r => fmtTime(r.creado_en));
-  chart.data.datasets[0].data  = rows.map(r => parseFloat(r.valor));
+  chart.data.labels           = rows.map(r => fmtTime(r.creado_en));
+  chart.data.datasets[0].data = rows.map(r => parseFloat(r.valor));
   chart.update('none');
   dom.placeholder.classList.add('hidden');
 
-  // KPI: valor actual (último registro)
   const last  = rows[rows.length - 1];
   const value = parseFloat(last.valor);
 
@@ -110,7 +122,6 @@ function render(rows) {
   dom.kpiBar.style.width     = Math.min((value / LUX_MAX) * 100, 100) + '%';
   dom.lastUpdate.textContent = fmtTime(last.creado_en);
 
-  // KPI: máx / mín de sesión
   rows.forEach(r => {
     const v = parseFloat(r.valor);
     if (state.sessionMax === null || v > state.sessionMax) {
@@ -122,24 +133,19 @@ function render(rows) {
       state.sessionMinTs = r.creado_en;
     }
   });
+
   dom.kpiMax.textContent     = state.sessionMax;
   dom.kpiMaxTime.textContent = fmtTime(state.sessionMaxTs);
   dom.kpiMin.textContent     = state.sessionMin;
   dom.kpiMinTime.textContent = fmtTime(state.sessionMinTs);
 
-  // KPI: promedio
   const avg = Math.round(rows.reduce((s, r) => s + parseFloat(r.valor), 0) / rows.length);
   dom.kpiAvg.textContent = avg;
 
-  // Gauge
   const ARC_LEN = 251;
   const filled  = Math.min(value / LUX_MAX, 1) * ARC_LEN;
   dom.gaugeArc.setAttribute('stroke-dasharray', `${filled.toFixed(1)} ${ARC_LEN}`);
   dom.gaugePct.textContent = Math.round((value / LUX_MAX) * 100) + '%';
-
-  // Tabla (solo muestra los últimos MAX_RECORDS, más reciente arriba)
-  const emptyRow = dom.readingsBody.querySelector('.table-empty-row');
-  if (emptyRow) emptyRow.remove();
 
   dom.readingsBody.innerHTML = '';
   [...rows].reverse().slice(0, MAX_RECORDS).forEach((r, i) => {
@@ -155,20 +161,21 @@ function render(rows) {
   dom.tableCount.textContent = Math.min(rows.length, MAX_RECORDS) + ' registros';
 }
 
-/* ─── Polling a la BD ───────────────────────── */
-async function poll() {
-  try {
-    const res  = await fetch(API_URL);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = await res.json();
+/* ─── Escuchar Firestore en tiempo real ─────── */
+const q = query(
+  collection(db, "lecturas"),
+  orderBy("creado_en", "asc"),
+  limit(60)
+);
+
+onSnapshot(q,
+  snapshot => {
+    const rows = snapshot.docs.map(doc => doc.data());
     setStatus(true);
     render(rows);
-  } catch (err) {
-    console.error('[LuxPanel] Error al consultar BD:', err.message);
+  },
+  err => {
+    console.error('[LuxPanel] Error Firestore:', err);
     setStatus(false);
   }
-}
-
-/* ─── Arranque ──────────────────────────────── */
-poll();
-setInterval(poll, POLL_INTERVAL);
+);

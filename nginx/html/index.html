@@ -14,13 +14,11 @@
   <div class="bg-grid"></div>
   <div class="bg-glow"></div>
 
-  <!-- Barra lateral -->
   <aside class="sidebar">
     <div class="sidebar__logo">
       <span class="logo-icon">◈</span>
       <span class="logo-text">LuxPanel</span>
     </div>
-
     <nav class="sidebar__nav">
       <a href="#" class="nav-item nav-item--active">
         <span class="nav-icon">▣</span>
@@ -43,7 +41,6 @@
         <span>Ajustes</span>
       </a>
     </nav>
-
     <div class="sidebar__footer">
       <div class="sensor-status">
         <span class="status-dot status-dot--online"></span>
@@ -53,10 +50,7 @@
     </div>
   </aside>
 
-  <!-- Contenido principal -->
   <main class="main">
-
-    <!-- Header -->
     <header class="topbar">
       <div class="topbar__left">
         <h1 class="page-title">Monitor de <em>Luminosidad</em></h1>
@@ -71,7 +65,6 @@
       </div>
     </header>
 
-    <!-- KPI Cards -->
     <section class="kpi-row">
       <div class="kpi-card kpi-card--highlight">
         <span class="kpi-card__label">Lectura actual</span>
@@ -83,7 +76,6 @@
           <div class="kpi-bar-fill" id="kpi-bar" style="width: 0%"></div>
         </div>
       </div>
-
       <div class="kpi-card">
         <span class="kpi-card__label">Máximo (sesión)</span>
         <div class="kpi-card__value">
@@ -92,7 +84,6 @@
         </div>
         <span class="kpi-card__meta" id="kpi-max-time">—</span>
       </div>
-
       <div class="kpi-card">
         <span class="kpi-card__label">Mínimo (sesión)</span>
         <div class="kpi-card__value">
@@ -101,7 +92,6 @@
         </div>
         <span class="kpi-card__meta" id="kpi-min-time">—</span>
       </div>
-
       <div class="kpi-card">
         <span class="kpi-card__label">Promedio</span>
         <div class="kpi-card__value">
@@ -112,7 +102,6 @@
       </div>
     </section>
 
-    <!-- Gráfica principal -->
     <section class="chart-section">
       <div class="chart-header">
         <div class="chart-header__title">
@@ -125,7 +114,6 @@
           <button class="ctrl-btn" data-range="600">10 min</button>
         </div>
       </div>
-
       <div class="chart-wrapper">
         <div class="chart-y-axis" id="y-axis">
           <span>1000</span>
@@ -142,7 +130,6 @@
           </div>
         </div>
       </div>
-
       <div class="chart-x-axis" id="x-axis">
         <span>-60 s</span>
         <span>-45 s</span>
@@ -152,10 +139,7 @@
       </div>
     </section>
 
-    <!-- Panel inferior -->
     <section class="bottom-row">
-
-      <!-- Gauge circular -->
       <div class="gauge-card">
         <span class="gauge-card__label">Nivel actual</span>
         <div class="gauge-wrap">
@@ -180,7 +164,6 @@
         </div>
       </div>
 
-      <!-- Tabla de lecturas recientes -->
       <div class="table-card">
         <div class="table-card__header">
           <span>Lecturas recientes</span>
@@ -204,16 +187,13 @@
           </table>
         </div>
       </div>
-
     </section>
-
   </main>
 
-  <!-- Dependencias -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-
-  <script src="dashboard.js"></script>
+  <!-- Dashboard con Firestore (módulo ES6) -->
+  <script type="module" src="dashboard.js"></script>
 
 </body>
 </html>
