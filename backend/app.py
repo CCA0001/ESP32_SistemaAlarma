@@ -7,7 +7,7 @@ from flask import Flask, jsonify
 
 # ── Configuración MQTT ───────────────────────
 MQTT_HOST  = os.environ.get('MQTT_HOST', 'localhost')
-MQTT_PORT  = int(os.environ.get('MQTT_PORT', 8884))
+MQTT_PORT  = int(os.environ.get('MQTT_PORT', 8883))
 MQTT_TOPIC = os.environ.get('MQTT_TOPIC', 'test01')
 MQTT_USER  = os.environ.get('MQTT_USER', '')
 MQTT_PASS  = os.environ.get('MQTT_PASS', '')
