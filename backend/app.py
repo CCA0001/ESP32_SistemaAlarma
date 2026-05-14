@@ -58,14 +58,13 @@ def on_message(client, userdata, msg):
         print(f"Error al guardar: {e}")
 
 def start_mqtt():
-    # Usar WebSockets sobre TLS (puerto 8884) que Railway permite
-    client = mqtt.Client(transport="websockets")
+    client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
     if MQTT_USER:
         client.username_pw_set(MQTT_USER, MQTT_PASS)
     client.tls_set(tls_version=ssl.PROTOCOL_TLS)
-    client.connect(MQTT_HOST, MQTT_PORT)
+    client.connect(MQTT_HOST, MQTT_PORT, keepalive=60)
     client.loop_forever()
 
 # ── Flask ────────────────────────────────────
