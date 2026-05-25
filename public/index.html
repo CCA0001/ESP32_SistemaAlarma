@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LuxPanel — Monitor de Luminosidad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+
+  <aside class="sidebar">
+    <div class="sidebar__logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">LuxPanel</span>
+    </div>
+    <nav class="sidebar__nav">
+      <a href="#" class="nav-item nav-item--active">
+        <span class="nav-icon">▣</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">◎</span>
+        <span>Sensores</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">◫</span>
+        <span>Historial</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">◧</span>
+        <span>Alertas</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="nav-icon">⊞</span>
+        <span>Ajustes</span>
+      </a>
+    </nav>
+    <div class="sidebar__footer">
+      <div class="sensor-status">
+        <span class="status-dot status-dot--online"></span>
+        <span class="status-label">Sensor activo</span>
+      </div>
+      <p class="version-tag">v2.4.1</p>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar__left">
+        <h1 class="page-title">Monitor de <em>Luminosidad</em></h1>
+        <p class="page-subtitle">Sensor analógico — Canal 01</p>
+      </div>
+      <div class="topbar__right">
+        <div class="timestamp">
+          <span class="timestamp__label">Última lectura</span>
+          <span class="timestamp__value" id="last-update">--:--:--</span>
+        </div>
+        <div class="refresh-btn" title="Actualizar">↻</div>
+      </div>
+    </header>
+
+    <section class="kpi-row">
+      <div class="kpi-card kpi-card--highlight">
+        <span class="kpi-card__label">Lectura actual</span>
+        <div class="kpi-card__value">
+          <span class="kpi-num" id="kpi-current">—</span>
+          <span class="kpi-unit">lux</span>
+        </div>
+        <div class="kpi-card__bar">
+          <div class="kpi-bar-fill" id="kpi-bar" style="width: 0%"></div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-card__label">Máximo (sesión)</span>
+        <div class="kpi-card__value">
+          <span class="kpi-num" id="kpi-max">—</span>
+          <span class="kpi-unit">lux</span>
+        </div>
+        <span class="kpi-card__meta" id="kpi-max-time">—</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-card__label">Mínimo (sesión)</span>
+        <div class="kpi-card__value">
+          <span class="kpi-num" id="kpi-min">—</span>
+          <span class="kpi-unit">lux</span>
+        </div>
+        <span class="kpi-card__meta" id="kpi-min-time">—</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-card__label">Promedio</span>
+        <div class="kpi-card__value">
+          <span class="kpi-num" id="kpi-avg">—</span>
+          <span class="kpi-unit">lux</span>
+        </div>
+        <span class="kpi-card__meta">Últimos 60 s</span>
+      </div>
+    </section>
+
+    <section class="chart-section">
+      <div class="chart-header">
+        <div class="chart-header__title">
+          <span class="chart-label">Intensidad lumínica en tiempo real</span>
+          <span class="chart-range-tag">Ventana: 60 s</span>
+        </div>
+        <div class="chart-controls">
+          <button class="ctrl-btn ctrl-btn--active" data-range="60">1 min</button>
+          <button class="ctrl-btn" data-range="300">5 min</button>
+          <button class="ctrl-btn" data-range="600">10 min</button>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <div class="chart-y-axis" id="y-axis">
+          <span>1000</span>
+          <span>750</span>
+          <span>500</span>
+          <span>250</span>
+          <span>0</span>
+        </div>
+        <div class="chart-area">
+          <canvas id="lux-chart" aria-label="Gráfica de luminosidad en tiempo real"></canvas>
+          <div class="chart-placeholder" id="chart-placeholder">
+            <span class="placeholder-icon">◈</span>
+            <p>En espera de datos del sensor…</p>
+          </div>
+        </div>
+      </div>
+      <div class="chart-x-axis" id="x-axis">
+        <span>-60 s</span>
+        <span>-45 s</span>
+        <span>-30 s</span>
+        <span>-15 s</span>
+        <span>Ahora</span>
+      </div>
+    </section>
+
+    <section class="bottom-row">
+      <div class="gauge-card">
+        <span class="gauge-card__label">Nivel actual</span>
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 200 120" aria-hidden="true">
+            <path class="gauge-track"
+              d="M 20 100 A 80 80 0 0 1 180 100"
+              fill="none" stroke-width="14" stroke-linecap="round"/>
+            <path class="gauge-fill" id="gauge-arc"
+              d="M 20 100 A 80 80 0 0 1 180 100"
+              fill="none" stroke-width="14" stroke-linecap="round"
+              stroke-dasharray="0 251"/>
+          </svg>
+          <div class="gauge-center">
+            <span class="gauge-pct" id="gauge-pct">0%</span>
+            <span class="gauge-sublabel">del rango</span>
+          </div>
+        </div>
+        <div class="gauge-scale">
+          <span>0</span>
+          <span>500</span>
+          <span>1000 lux</span>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card__header">
+          <span>Lecturas recientes</span>
+          <span class="table-count" id="table-count">0 registros</span>
+        </div>
+        <div class="table-scroll">
+          <table class="readings-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Hora</th>
+                <th>Valor (lux)</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="readings-body">
+              <tr class="table-empty-row">
+                <td colspan="4">Sin datos aún</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Dashboard con Firestore (módulo ES6) -->
+  <script type="module" src="dashboard.js"></script>
+
+</body>
+</html>
