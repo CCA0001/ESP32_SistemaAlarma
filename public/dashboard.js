@@ -18,7 +18,7 @@ const db  = getFirestore(app);
 
 /* ─── Configuración ─────────────────────────── */
 const LUX_MAX      = 100;
-const MAX_RECORDS  = 50;
+const MAX_RECORDS  = 100;
 
 /* ─── Estado global ─────────────────────────── */
 const state = {
